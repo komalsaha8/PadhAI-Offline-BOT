@@ -150,6 +150,16 @@ This app is ready to deploy on Streamlit Community Cloud (streamlit.io/cloud) fo
 
 ---
 
+## Known Limitations (This CPU Prototype)
+
+- **Diagrams, circuits, and drawings are not read.** Tesseract OCR only recognizes text characters - it has no concept of visual/spatial meaning, so hand-drawn circuit diagrams, graphs, or figures on the board will not be interpreted. Only written text, formulas, and labels are extracted. This is a fundamental limitation of any text-only OCR engine, not specific to this app.
+- **Best results come from text-heavy board photos** (definitions, notes, formulas written in words) rather than diagrams or sketches.
+- **Symbols and units** (V, ohm sign, etc.) are extracted with reasonable but not perfect accuracy on a CPU OCR engine; results improve significantly with clearer, well-lit handwriting.
+- The MCQ and notes generator is **rule-based** (pattern matching), not true comprehension - it does not understand diagrams or complex reasoning the way an LLM would.
+- These limitations are expected to improve substantially in the final build: **YOLOv8-OCR (INT8)** is trained for more robust text detection in cluttered scenes, and **Phi-3.5 Mini Instruct** will generate real comprehension-based notes and questions instead of pattern-based ones. Diagram/figure *understanding* (not just text extraction) remains a future scope beyond this challenge's timeline.
+
+---
+
 ## Target Impact
 
 Aimed at 10 Crore+ students across Tier 2/3 India who need affordable, offline, and private learning tools - particularly in classrooms where internet access is unreliable or unavailable.
