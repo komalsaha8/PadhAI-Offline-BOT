@@ -143,13 +143,51 @@ def generate_summary(sentences, max_sentences=3):
     return " ".join(sentences[:max_sentences])
 
 
-def generate_notes(sentences):
-    notes = []
+def generate_notes(sentences, max_points=10):
+    """
+    Breaks extracted text into short, scannable bullet points instead of
+    dumping full sentences as-is. Long sentences are split on natural
+    breaks (commas, semicolons, ' and ') so each point stays concise -
+    closer to how a student would actually write notes.
+    """
+    points = []
+
     for s in sentences:
-        s_clean = s.strip()
-        if len(s_clean.split()) >= 3:
-            notes.append(f"- {s_clean}")
-    return notes[:8] if notes else ["- (Add clearer board text to generate notes)"]
+        s_clean = s.strip().rstrip(".")
+        if len(s_clean.split()) < 3:
+            continue
+
+        # If the sentence is short enough, keep it as one point.
+        if len(s_clean.split()) <= 12:
+            points.append(s_clean)
+            continue
+
+        # Otherwise, split long sentences into smaller chunks on natural
+        # breaks (commas, semicolons, "and") so each bullet stays a
+        # complete, readable idea rather than a mid-clause fragment.
+        chunks = re.split(r",\s+| and |; ", s_clean)
+        for chunk in chunks:
+            chunk = chunk.strip()
+            # Drop a leading conjunction left over from splitting, so
+            # points don't awkwardly start with "and"/"which"/"but".
+            chunk = re.sub(r"^(and|which|where|but)\s+", "", chunk, flags=re.IGNORECASE)
+            if len(chunk.split()) >= 3:
+                points.append(chunk)
+
+    # Capitalize first letter and dedupe while preserving order
+    seen = set()
+    clean_points = []
+    for p in points:
+        p_formatted = p[0].upper() + p[1:] if p else p
+        key = p_formatted.lower()
+        if key not in seen:
+            seen.add(key)
+            clean_points.append(p_formatted)
+
+    if not clean_points:
+        return ["(Add clearer board text to generate notes)"]
+
+    return clean_points[:max_points]
 
 
 def make_fill_blank_question(sentence, all_long_words):
@@ -254,7 +292,8 @@ if final_text:
     st.info(summary)
 
     st.subheader("Notes")
-    st.markdown("\n".join(notes))
+    notes_markdown = "\n".join(f"- {point}" for point in notes)
+    st.markdown(notes_markdown)
 
     st.subheader("Practice MCQs")
     if mcqs:
