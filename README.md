@@ -1,3 +1,4 @@
+Live Demo: https://padhai-offline-bot-9ih4wkikgcsv3uwafcjr5s.streamlit.app
 # PadhAI BOT - Offline Board-to-Notes AI
 
 > No WiFi. No Data Cost. No Privacy Leak. 100% Offline AI on Snapdragon X Elite.
