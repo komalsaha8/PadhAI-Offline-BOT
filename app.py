@@ -29,7 +29,9 @@ import string
 import random
 
 import streamlit as st
-from PIL import Image, ImageOps, ImageFilter
+import numpy as np
+import cv2
+from PIL import Image
 import pytesseract
 
 # ----------------------------------------------------------------------
@@ -68,17 +70,36 @@ uploaded_file = st.file_uploader(
 )
 
 
-def preprocess_image(image: Image.Image) -> Image.Image:
-    """Basic cleanup to help OCR handle low-light / low-contrast board photos."""
-    gray = ImageOps.grayscale(image)
-    gray = ImageOps.autocontrast(gray)
-    gray = gray.filter(ImageFilter.SHARPEN)
-    return gray
+def preprocess_image(image: Image.Image) -> np.ndarray:
+    """
+    Cleanup pipeline to help Tesseract handle real board photos:
+    uneven lighting, small handwriting/symbols, low resolution.
+    NOTE: This only improves TEXT recognition (words, formulas, units).
+    It cannot interpret diagrams, circuits, or drawings — OCR has no
+    concept of visual/spatial meaning, only characters.
+    """
+    img_array = np.array(image.convert("RGB"))
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+    # Upscale — small board text/symbols are much easier to read larger
+    gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+    # Denoise before thresholding
+    gray = cv2.fastNlMeansDenoising(gray, h=10)
+
+    # Adaptive threshold handles uneven board lighting / glare better
+    # than a single global contrast adjustment.
+    thresh = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
+    )
+    return thresh
 
 
 def extract_text(image: Image.Image) -> str:
     processed = preprocess_image(image)
-    text = pytesseract.image_to_string(processed)
+    # --oem 3: default LSTM engine. --psm 6: assume a single uniform block
+    # of text, which suits board/whiteboard photos better than the default.
+    text = pytesseract.image_to_string(processed, config="--oem 3 --psm 6")
     return text.strip()
 
 
@@ -131,39 +152,93 @@ def generate_notes(sentences):
     return notes[:8] if notes else ["- (Add clearer board text to generate notes)"]
 
 
+def make_fill_blank_question(sentence, all_long_words):
+    words = [w.strip(string.punctuation) for w in sentence.split()]
+    long_words = [w for w in words if len(w) > 4]
+    if not long_words:
+        return None
+
+    answer = random.choice(long_words)
+    question_text = sentence.replace(answer, "____", 1)
+
+    pool = [w for w in all_long_words if w.lower() != answer.lower()]
+    distractors = set(random.sample(pool, min(3, len(pool)))) if pool else set()
+    while len(distractors) < 3:
+        distractors.add(random.choice(["Concept", "Process", "Value", "Factor"]))
+
+    options = list(distractors) + [answer]
+    random.shuffle(options)
+
+    return {
+        "question": f"Fill in the blank: {question_text}",
+        "options": options,
+        "answer": answer,
+    }
+
+
+def make_true_false_question(sentence, all_sentences):
+    """
+    Creates a True/False question by either keeping the sentence as-is (True)
+    or swapping in a numeric/keyword change to make it False, using another
+    sentence's content as the distractor source. Adds variety alongside
+    fill-in-the-blank questions.
+    """
+    numbers_in_sentence = re.findall(r"\d+(?:\.\d+)?", sentence)
+    is_true = random.choice([True, False])
+
+    if numbers_in_sentence and not is_true:
+        # Alter a number to make the statement false
+        original_number = random.choice(numbers_in_sentence)
+        altered_number = str(int(float(original_number)) + random.choice([1, 2, 5, 10]))
+        statement = sentence.replace(original_number, altered_number, 1)
+        answer = "False"
+    elif not is_true and len(all_sentences) > 1:
+        # Swap in a fragment from a different sentence to make it false
+        other = random.choice([s for s in all_sentences if s != sentence])
+        other_words = other.split()
+        this_words = sentence.split()
+        if len(other_words) >= 3 and len(this_words) >= 3:
+            statement = " ".join(this_words[:-2] + other_words[-2:])
+            answer = "False"
+        else:
+            statement = sentence
+            answer = "True"
+    else:
+        statement = sentence
+        answer = "True"
+
+    return {
+        "question": f"True or False: \"{statement}\"",
+        "options": ["True", "False"],
+        "answer": answer,
+    }
+
+
 def generate_mcqs(sentences, num_questions=3):
     """
-    Simple rule-based fill-in-the-blank MCQ generator.
-    Placeholder for Phi-3.5 Mini Instruct in the final build.
+    Rule-based MCQ generator with two question styles (fill-in-the-blank and
+    true/false) so quizzes don't feel repetitive. This is a placeholder for
+    Phi-3.5 Mini Instruct in the final on-device build, which will generate
+    genuinely comprehension-based questions instead of pattern-based ones.
     """
     candidates = [s for s in sentences if len(s.split()) >= 5]
+    if not candidates:
+        return []
+
     random.shuffle(candidates)
+    all_words = [w.strip(string.punctuation) for s in candidates for w in s.split()]
+    all_long_words = [w for w in all_words if len(w) > 4]
+
     mcqs = []
+    for i, s in enumerate(candidates[:num_questions]):
+        # Alternate style: even index -> fill-in-blank, odd index -> true/false
+        if i % 2 == 0:
+            q = make_fill_blank_question(s, all_long_words)
+        else:
+            q = make_true_false_question(s, candidates)
 
-    for s in candidates[:num_questions]:
-        words = [w.strip(string.punctuation) for w in s.split()]
-        long_words = [w for w in words if len(w) > 4]
-        if not long_words:
-            continue
-        answer = random.choice(long_words)
-        question_text = s.replace(answer, "ـ" * len(answer), 1)
-
-        distractors = set()
-        while len(distractors) < 3:
-            fake = random.choice(long_words + ["Concept", "Process", "Value", "Factor"])
-            if fake.lower() != answer.lower():
-                distractors.add(fake)
-
-        options = list(distractors) + [answer]
-        random.shuffle(options)
-
-        mcqs.append(
-            {
-                "question": f"Fill in the blank: {question_text}",
-                "options": options,
-                "answer": answer,
-            }
-        )
+        if q:
+            mcqs.append(q)
 
     return mcqs
 
