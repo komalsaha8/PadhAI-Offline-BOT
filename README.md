@@ -1,37 +1,157 @@
-Live Demo: https://padhai-offline-bot-9ih4wkikgcsv3uwafcjr5s.streamlit.app
-# PadhAI BOT - Offline Board-to-Notes AI
+## 🔗 Live Demo
 
-> No WiFi. No Data Cost. No Privacy Leak. 100% Offline AI on Snapdragon X Elite.
+**[https://padhai-offline-bot-9ih4wkikgcsv3uwafcjr5s.streamlit.app](https://padhai-offline-bot-9ih4wkikgcsv3uwafcjr5s.streamlit.app)**
 
-### The Problem
-* Students capture RR blackboard photos but never convert them into notes.
-* Cloud AI tools like ChatGPT require stable internet, consume mobile data, and leak classroom data.
-* In Tier 2/3 cities and rural colleges, classroom internet connectivity is unreliable or zero.
+---
 
-### Our Solution - 3 Step BOT (Board-to-Notes)
-An offline AI assistant that runs 100% on-device.
+# PadhAI BOT — Offline Board-to-Notes AI
 
-**Step 1: Photo -> Text**
-Converts skewed, blurry, and low-light board images into clean digital text. 
-*Model: YOLOv8 OCR INT8 (Optimized for NPU) from Qualcomm AI Hub*
+> No WiFi. No Data Cost. No Privacy Leak. Designed to be optimized for Snapdragon-powered HP PCs.
 
-**Step 2: Text -> Smart Notes**
-Automatically generates concise notes, a quick summary, and 3 practice MCQs from the extracted text.
-*Model: Phi-3.5 Mini Instruct (INT4) from Qualcomm AI Hub*
+**Submission:** Snapdragon® AI Lab Build & Present Challenge
+**Status:** ✅ Working CPU prototype (this repo) — proposed to be rebuilt on Qualcomm AI Hub models for on-device deployment on Snapdragon-powered HP PCs.
 
-**Step 3: BOT Chat - Offline Doubt Solving**
-Students can ask "Explain this in Hindi" or "Test me" and get instant answers without internet.
+---
 
-### Why Snapdragon X Elite?
-* **45 TOPS Hexagon NPU:** Efficiently runs INT8/INT4 quantized models.
-* **<1W Power Consumption:** Enables 26+ hours battery life for all-day classroom use.
-* **100% On-Device AI:** No data leaves the device. Complete privacy and zero internet cost.
+## The Problem
 
-### Tech Stack
-Qualcomm AI Hub, YOLOv8-OCR-INT8, Phi-3.5 Mini Instruct, Python, Streamlit, ONNX Runtime with QNN Execution Provider
+- Students capture blurry blackboard photos but rarely convert them into usable notes.
+- Cloud AI tools like ChatGPT need stable internet, consume mobile data, and raise privacy concerns around classroom content.
+- In Tier 2/3 cities and rural colleges, classroom internet connectivity is unreliable or completely absent.
 
-### Target Impact
-Built for 10 Crore+ students in Tier 2/3 India who need affordable, offline, and private learning tools.
+---
 
-### Team
-Komal Saha - PadhAI BOT
+## Our Solution — 3-Step BOT (Board-to-Notes)
+
+An AI assistant designed to run 100% on-device, with no cloud dependency at any step.
+
+### Step 1: Photo → Text
+Converts board images into clean digital text.
+
+### Step 2: Text → Smart Notes
+Automatically generates a summary, structured notes, and practice MCQs from the extracted text.
+
+### Step 3: BOT Chat — Doubt Solving
+Students can ask things like "Explain this in Hindi" or "Test me" and get instant answers.
+
+---
+
+## Current Status — What's Working vs What's Proposed
+
+This repo contains a **working, runnable prototype** so judges can see the full pipeline in action, not just a concept. It intentionally uses lightweight, free, CPU-only components so it runs anywhere without Snapdragon hardware. The AI model layer is designed to be swapped for Qualcomm AI Hub models for the final on-device build.
+
+| Stage | ✅ This Prototype (CPU, works today) | 🎯 Proposed Final Build (Snapdragon-powered HP PC) |
+|---|---|---|
+| OCR | Tesseract OCR | **YOLOv8-OCR (INT8)** — Qualcomm AI Hub, on Hexagon NPU |
+| Notes / Summary / MCQ | Rule-based generator (extractive summary + fill-in-the-blank MCQs) | **Phi-3.5 Mini Instruct (INT4)** — Qualcomm AI Hub, on Hexagon NPU |
+| Chat / Doubt Solving | Template-based demo responses | Phi-3.5 Mini Instruct, fully on-device, real multilingual Q&A |
+| Inference Runtime | Python / CPU | ONNX Runtime with QNN Execution Provider |
+| Target Hardware | Any machine (demo) | Snapdragon-powered HP PC (Hexagon NPU) |
+
+This approach was chosen deliberately: it proves the **pipeline, UX, and product logic work end-to-end** right now, while clearly separating what still needs to be ported to Qualcomm AI Hub's NPU-optimized models on actual Snapdragon hardware.
+
+---
+
+## Proposed Architecture (Final Build)
+
+```
+[Board Photo]
+     │
+     ▼
+┌─────────────────────┐
+│  OCR Module           │  YOLOv8-OCR (INT8) — Qualcomm AI Hub
+│  (Hexagon NPU)         │  Handles skew/blur/low-light correction
+└─────────┬────────────┘
+          │ extracted text
+          ▼
+┌─────────────────────┐
+│  Notes Generator       │  Phi-3.5 Mini Instruct (INT4) — Qualcomm AI Hub
+│  (Hexagon NPU)         │  Summary + Notes + MCQs
+└─────────┬────────────┘
+          │ structured notes
+          ▼
+┌─────────────────────┐
+│  BOT Chat Interface    │  Streamlit UI
+│  (On-device inference) │  Doubt-solving, translation, quizzing
+└─────────────────────┘
+
+All processing to run on-device via ONNX Runtime + QNN Execution Provider
+on a Snapdragon-powered HP PC — no data will leave the device.
+```
+
+---
+
+## Why This Fits Snapdragon-Powered HP PCs
+
+- **Hexagon NPU:** Provides the on-device compute headroom needed to run INT8/INT4 quantized OCR and LLM models locally, without any cloud offload.
+- **Power efficiency:** Snapdragon's low-power NPU architecture makes an always-available, all-day classroom tool realistic on an HP PC — exact battery/power benchmarks will be measured once ported to Snapdragon hardware.
+- **On-device AI by design:** The final solution is built around quantized models sourced directly from Qualcomm AI Hub, avoiding any network round-trip for OCR or text generation.
+
+---
+
+## How to Run This Prototype Locally
+
+```bash
+# 1. Clone the repo
+git clone <your-repo-url>
+cd padhai-bot
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Install Tesseract OCR engine
+# Ubuntu/Debian:
+sudo apt-get install tesseract-ocr
+# Windows: download installer from https://github.com/UB-Mannheim/tesseract/wiki
+# Mac: brew install tesseract
+
+# 4. Run the app
+streamlit run app.py
+```
+
+The app opens in your browser. Upload a board photo (or type text manually) to see OCR → Notes → MCQ → Chat working end-to-end.
+
+### Deploying (for judges to access via a link)
+This app is ready to deploy on [Streamlit Community Cloud](https://streamlit.io/cloud) for free:
+1. Push this repo to GitHub.
+2. On share.streamlit.io, create a new app pointing to `app.py`.
+3. Streamlit Cloud auto-installs `packages.txt` (tesseract-ocr) and `requirements.txt`.
+
+---
+
+## Tech Stack
+
+| Component | Prototype (this repo) | Final Proposed Build |
+|---|---|---|
+| OCR | Tesseract OCR | YOLOv8-OCR (INT8), Qualcomm AI Hub |
+| Notes/Chat | Rule-based Python | Phi-3.5 Mini Instruct (INT4), Qualcomm AI Hub |
+| Runtime | Python | ONNX Runtime + QNN Execution Provider |
+| Interface | Streamlit | Streamlit |
+| Target Hardware | Any CPU | Snapdragon-powered HP PC |
+
+---
+
+## Development Roadmap
+
+- [x] **Phase 0 (Done):** Working CPU prototype — OCR, notes/MCQ generation, chat UX, deployed and demoable.
+- [ ] **Phase 1:** Replace Tesseract with YOLOv8-OCR (INT8) from Qualcomm AI Hub; benchmark on Snapdragon-powered HP PC.
+- [ ] **Phase 2:** Replace rule-based notes/MCQ generator with Phi-3.5 Mini Instruct (INT4) running via ONNX Runtime + QNN Execution Provider.
+- [ ] **Phase 3:** Enable real offline multilingual chat (Hindi explanation, quizzing) using the on-device LLM.
+- [ ] **Phase 4:** On-device benchmarking (latency, power draw, battery impact) and UI polish for classroom use.
+
+---
+
+## Target Impact
+
+Aimed at 10 Crore+ students across Tier 2/3 India who need affordable, offline, and private learning tools — particularly in classrooms where internet access is unreliable or unavailable.
+
+---
+
+## Team
+
+**Komal Saha** — Idea, design, and build for PadhAI BOT (solo submission).
+
+---
+
+*This repository contains a working prototype demonstrating the proposed PadhAI BOT pipeline. In line with the Snapdragon® AI Lab Build & Present Challenge requirements, the final solution is intended to be optimized for Snapdragon-powered HP PCs using AI models from Qualcomm AI Hub.*
+
